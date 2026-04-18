@@ -1,0 +1,8 @@
+.venv
+.git
+.claude
+__pycache__
+data/urbandict-word-defs.csv
+data/urban_dictionary_filtered.csv
+data/kym_scraped_slugs.txt
+*.pyc

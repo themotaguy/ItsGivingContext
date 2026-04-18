@@ -1,0 +1,18 @@
+# Virtual environment
+.venv/
+
+# Large data files
+data/urbandict-word-defs.csv
+data/urban_dictionary_filtered.csv
+data/kym_scraped_slugs.txt
+
+# ChromaDB index (too large for GitHub)
+data/chroma_db/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store
