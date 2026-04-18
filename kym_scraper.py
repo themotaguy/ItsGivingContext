@@ -14,6 +14,7 @@ Be polite: default delay is 1.5s between requests. Don't reduce below 1s.
 """
 
 import csv
+import re
 import time
 import random
 import logging
@@ -114,9 +115,6 @@ def collect_slugs(max_slugs: int) -> list[str]:
     return list(dict.fromkeys(slugs))  # deduplicate, preserve order
 
 # ── Step 2: Parse a single meme page ─────────────────────────────────────────
-SECTION_HEADERS = ["about", "origin", "spread", "notable examples", "search interest",
-                   "external references", "recent videos", "comments"]
-
 def parse_sections(soup: BeautifulSoup) -> dict[str, str]:
     """Extract named sections using KYM's anchor IDs (about, origin, spread, etc.)."""
     sections = {}
@@ -223,7 +221,6 @@ def parse_meme_page(slug: str) -> dict | None:
     year = None
     for key in ("year", "origin_year", "added"):
         val = sidebar.get(key, "")
-        import re
         m = re.search(r"\b(19|20)\d{2}\b", val)
         if m:
             year = int(m.group())

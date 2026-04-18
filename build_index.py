@@ -41,10 +41,14 @@ def get_collection():
     return collection
 
 # ── Batch indexing (shared by UD and KYM) ────────────────────────────────────
-def index_batch(ids, texts, metadatas, model, collection):
-    """Check for existing IDs, embed, and upsert a single batch."""
-    existing = set(collection.get(ids=ids)["ids"])
-    new = [(i, t, m) for i, t, m in zip(ids, texts, metadatas) if i not in existing]
+def load_existing_ids(collection) -> set:
+    """Load all existing IDs from the collection in one query."""
+    result = collection.get(include=[])  # fetch IDs only, no documents/embeddings
+    return set(result["ids"])
+
+def index_batch(ids, texts, metadatas, model, collection, existing_ids: set):
+    """Embed and add a batch, skipping IDs already in the collection."""
+    new = [(i, t, m) for i, t, m in zip(ids, texts, metadatas) if i not in existing_ids]
     if not new:
         return 0
     n_ids, n_texts, n_metas = zip(*new)
@@ -55,10 +59,11 @@ def index_batch(ids, texts, metadatas, model, collection):
         documents=list(n_texts),
         metadatas=list(n_metas),
     )
+    existing_ids.update(n_ids)
     return len(new)
 
 # ── Urban Dictionary ──────────────────────────────────────────────────────────
-def index_ud(model, collection):
+def index_ud(model, collection, existing_ids: set):
     print(f"[Urban Dictionary] Loading top {UD_MAX_ROWS:,} entries by net votes...")
     df = pd.read_csv(UD_PATH, dtype={"word_id": str}, on_bad_lines="skip", engine="python")
     df = df.nlargest(UD_MAX_ROWS, "net_votes").reset_index(drop=True)
@@ -82,16 +87,16 @@ def index_ud(model, collection):
             "url":        f"https://www.urbandictionary.com/define.php?term={word.replace(' ', '+')}",
         })
         if len(ids) >= BATCH_SIZE:
-            total_added += index_batch(ids, texts, metas, model, collection)
+            total_added += index_batch(ids, texts, metas, model, collection, existing_ids)
             ids, texts, metas = [], [], []
 
     if ids:
-        total_added += index_batch(ids, texts, metas, model, collection)
+        total_added += index_batch(ids, texts, metas, model, collection, existing_ids)
 
     print(f"  Added {total_added:,} new UD entries. Collection size: {collection.count():,}\n")
 
 # ── Know Your Meme ────────────────────────────────────────────────────────────
-def index_kym(model, collection):
+def index_kym(model, collection, existing_ids: set):
     if not KYM_PATH.exists():
         print(f"[KYM] {KYM_PATH} not found — run kym_scraper.py first.")
         return
@@ -126,11 +131,11 @@ def index_kym(model, collection):
                 "url":     url,
             })
             if len(ids) >= BATCH_SIZE:
-                total_added += index_batch(ids, texts, metas, model, collection)
+                total_added += index_batch(ids, texts, metas, model, collection, existing_ids)
                 ids, texts, metas = [], [], []
 
     if ids:
-        total_added += index_batch(ids, texts, metas, model, collection)
+        total_added += index_batch(ids, texts, metas, model, collection, existing_ids)
 
     print(f"  Added {total_added:,} new KYM entries. Collection size: {collection.count():,}\n")
 
@@ -143,14 +148,15 @@ def main():
     print(f"Loading embedding model: {EMBED_MODEL}")
     model = SentenceTransformer(EMBED_MODEL)
 
-    collection = get_collection()
-    print(f"Collection '{COLLECTION_NAME}' — current size: {collection.count():,}\n")
+    collection   = get_collection()
+    existing_ids = load_existing_ids(collection)
+    print(f"Collection '{COLLECTION_NAME}' — current size: {len(existing_ids):,}\n")
 
     if args.source in ("ud", "both"):
-        index_ud(model, collection)
+        index_ud(model, collection, existing_ids)
 
     if args.source in ("kym", "both"):
-        index_kym(model, collection)
+        index_kym(model, collection, existing_ids)
 
     print("Indexing complete.")
 

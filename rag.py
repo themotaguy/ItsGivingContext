@@ -10,11 +10,12 @@ Requirements:
 """
 
 import os
-import requests
-import chromadb
 
 os.environ["TRANSFORMERS_VERBOSITY"] = "error"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+
+import requests
+import chromadb
 from pathlib import Path
 from sentence_transformers import SentenceTransformer
 
@@ -24,10 +25,9 @@ COLLECTION_NAME = "slang_memes"
 EMBED_MODEL     = "all-MiniLM-L6-v2"
 OLLAMA_MODEL    = os.environ.get("OLLAMA_MODEL", "llama3.2")
 OLLAMA_URL      = os.environ.get("OLLAMA_URL", "http://localhost:11434") + "/api/generate"
-TOP_K            = 3    # number of results to retrieve
-MIN_SIMILARITY   = 0.30  # drop results below this threshold
+TOP_K           = 3
+MIN_SIMILARITY  = 0.30
 
-# ── Clients (lazy-loaded singletons) ─────────────────────────────────────────
 _embedder   = None
 _collection = None
 
@@ -44,54 +44,37 @@ def get_collection():
         _collection = client.get_collection(COLLECTION_NAME)
     return _collection
 
-# ── Retrieval ─────────────────────────────────────────────────────────────────
 def retrieve(query: str, top_k: int = TOP_K) -> list[dict]:
     """Embed query and return top-k matching documents with metadata."""
-    embedder   = get_embedder()
-    collection = get_collection()
-
-    query_vec = embedder.encode([query]).tolist()
-    results   = collection.query(
+    query_vec = get_embedder().encode([query]).tolist()
+    results   = get_collection().query(
         query_embeddings=query_vec,
         n_results=top_k,
         include=["documents", "metadatas", "distances"],
     )
+    return [
+        {"text": doc, "metadata": meta, "similarity": round(1 - dist, 4)}
+        for doc, meta, dist in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        )
+        if round(1 - dist, 4) >= MIN_SIMILARITY
+    ]
 
-    hits = []
-    for doc, meta, dist in zip(
-        results["documents"][0],
-        results["metadatas"][0],
-        results["distances"][0],
-    ):
-        similarity = round(1 - dist, 4)
-        if similarity >= MIN_SIMILARITY:
-            hits.append({
-                "text":       doc,
-                "metadata":   meta,
-                "similarity": similarity,
-            })
-    return hits
-
-# ── Prompt builder ────────────────────────────────────────────────────────────
 def build_prompt(query: str, hits: list[dict]) -> str:
     context_blocks = []
     for i, hit in enumerate(hits, 1):
         meta   = hit["metadata"]
         source = meta.get("source", "")
         url    = meta.get("url", "")
-
         if source == "urban_dictionary":
-            word = meta.get('word', '')
-            header = f'[{i}] Urban Dictionary -- "{word}"'
+            header = f'[{i}] Urban Dictionary -- "{meta.get("word", "")}"'
         else:
-            title   = meta.get("title", "")
-            section = meta.get("section", "")
-            header  = f'[{i}] Know Your Meme -- "{title}" ({section})'
-
+            header = f'[{i}] Know Your Meme -- "{meta.get("title", "")}" ({meta.get("section", "")})'
         context_blocks.append(f"{header}\nURL: {url}\n{hit['text']}")
 
     context = "\n\n---\n\n".join(context_blocks)
-
     return f"""You are a helpful cultural explainer that specializes in internet slang, memes, and Gen Z language.
 
 A user wants to understand: "{query}"
@@ -112,53 +95,33 @@ Sources: [1] <url1>  [2] <url2>  ...
 
 If the entries don't contain enough information to explain the term, say so honestly."""
 
-# ── Main query function ───────────────────────────────────────────────────────
 def explain(query: str) -> dict:
-    """
-    Full RAG pipeline: retrieve → prompt → generate.
-    Returns a dict with keys: query, explanation, sources, hits.
-    """
+    """Full RAG pipeline for CLI use: retrieve → prompt → generate."""
     hits = retrieve(query)
     if not hits:
         return {
             "query":       query,
-            "explanation": f'Sorry, no relevant results found for "{query}". It may be too new or too niche for our dataset.',
+            "explanation": f'Sorry, no relevant results found for "{query}".',
             "sources":     [],
             "hits":        [],
         }
-    prompt = build_prompt(query, hits)
-
     response = requests.post(
         OLLAMA_URL,
-        json={
-            "model":   OLLAMA_MODEL,
-            "prompt":  prompt,
-            "stream":  False,
-            "options": {"num_predict": 300},  # cap output length
-        },
+        json={"model": OLLAMA_MODEL, "prompt": build_prompt(query, hits),
+              "stream": False, "options": {"num_predict": 300}},
         timeout=120,
     )
     response.raise_for_status()
     explanation = response.json()["response"]
-
-    # Extract source URLs from hits for structured return
-    sources = []
-    for hit in hits:
-        url = hit["metadata"].get("url", "")
-        if url and url not in sources:
-            sources.append(url)
-
-    return {
-        "query":       query,
-        "explanation": explanation,
-        "sources":     sources,
-        "hits":        hits,
-    }
+    sources = list(dict.fromkeys(
+        h["metadata"]["url"] for h in hits if h["metadata"].get("url")
+    ))
+    return {"query": query, "explanation": explanation, "sources": sources, "hits": hits}
 
 
 if __name__ == "__main__":
     import sys
-    query = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "no cap"
+    query  = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "no cap"
     result = explain(query)
     print(f"\n=== {result['query']} ===\n")
     print(result["explanation"])

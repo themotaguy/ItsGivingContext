@@ -5,22 +5,20 @@ Run with:
     streamlit run app.py
 """
 
+import json
 import requests
 import streamlit as st
-from rag import retrieve, build_prompt, OLLAMA_URL, OLLAMA_MODEL, MIN_SIMILARITY
+from rag import retrieve, build_prompt, OLLAMA_URL, OLLAMA_MODEL
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="ItsGivingContext",
     page_icon="🔍",
     layout="centered",
 )
 
-# ── Header ────────────────────────────────────────────────────────────────────
 st.title("🔍 ItsGivingContext")
 st.caption("Explain internet slang and memes — powered by Urban Dictionary & Know Your Meme")
 
-# ── Input ─────────────────────────────────────────────────────────────────────
 with st.form("search_form"):
     query = st.text_input(
         label="Enter a slang term or meme",
@@ -29,20 +27,19 @@ with st.form("search_form"):
     )
     search = st.form_submit_button("Explain it", type="primary", use_container_width=True)
 
-# ── Results ───────────────────────────────────────────────────────────────────
 if search and query.strip():
-    hits = retrieve(query.strip())
+    q    = query.strip()
+    hits = retrieve(q)
 
     st.markdown("---")
-    st.subheader(f"What is \"{query}\"?")
+    st.subheader(f"What is \"{q}\"?")
 
     if not hits:
-        st.warning(f'No relevant results found for "{query}". It may be too new or niche for our dataset.')
+        st.warning(f'No relevant results found for "{q}". It may be too new or niche for our dataset.')
         st.stop()
 
-    prompt = build_prompt(query.strip(), hits)
+    prompt = build_prompt(q, hits)
 
-    # Stream the response token by token
     def stream_ollama():
         with requests.post(
             OLLAMA_URL,
@@ -53,23 +50,21 @@ if search and query.strip():
             r.raise_for_status()
             for line in r.iter_lines():
                 if line:
-                    import json
                     chunk = json.loads(line)
                     yield chunk.get("response", "")
                     if chunk.get("done"):
                         break
 
     try:
-        explanation = st.write_stream(stream_ollama())
+        st.write_stream(stream_ollama())
     except Exception as e:
         st.error(f"Ollama error: {e}. Make sure `ollama serve` is running.")
 
-    # Retrieved sources — deduplicate by URL
     st.markdown("---")
     st.subheader("Sources")
     seen_urls = set()
     citation  = 1
-    for hit in result["hits"]:
+    for hit in hits:
         meta = hit["metadata"]
         url  = meta.get("url", "#")
         if url in seen_urls:
