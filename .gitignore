@@ -5,6 +5,7 @@
 data/urbandict-word-defs.csv
 data/urban_dictionary_filtered.csv
 data/kym_scraped_slugs.txt
+# kym_embeddings.npz is intentionally tracked for fast cloud startup
 
 # ChromaDB index (too large for GitHub)
 data/chroma_db/
