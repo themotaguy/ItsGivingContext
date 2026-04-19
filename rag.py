@@ -33,10 +33,10 @@ MIN_SIMILARITY  = 0.30
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
 OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434") + "/api/generate"
 
-# HuggingFace Inference API (cloud)
-HF_API_TOKEN = os.environ.get("HF_API_TOKEN", "")
-HF_MODEL     = "mistralai/Mistral-7B-Instruct-v0.3"
-HF_API_URL   = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}/v1/chat/completions"
+# Groq Inference API (cloud — free tier)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL   = "llama-3.1-8b-instant"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 _embedder = None
 
@@ -158,15 +158,15 @@ Citations: [1] [2]
 If the entries don't contain enough information to explain the term, say so honestly."""
 
 # ── Generation ────────────────────────────────────────────────────────────────
-def generate_hf(prompt: str) -> str:
-    """Generate via HuggingFace Inference API (chat completions format)."""
-    token = os.environ.get("HF_API_TOKEN", HF_API_TOKEN)
+def generate_groq(prompt: str) -> str:
+    """Generate via Groq API (free tier, fast)."""
+    token = os.environ.get("GROQ_API_KEY", GROQ_API_KEY)
     response = requests.post(
-        HF_API_URL,
-        headers={"Authorization": f"Bearer {token}"},
+        GROQ_API_URL,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={
-            "model":      HF_MODEL,
-            "messages":   [{"role": "user", "content": prompt}],
+            "model":    GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 300,
         },
         timeout=60,
@@ -199,7 +199,7 @@ def explain(query: str) -> dict:
                 "explanation": f'No relevant results found for "{query}".',
                 "sources": [], "hits": []}
     prompt      = build_prompt(query, hits)
-    explanation = generate_hf(prompt) if os.environ.get("HF_API_TOKEN", HF_API_TOKEN) else "".join(stream_ollama(prompt))
+    explanation = generate_groq(prompt) if os.environ.get("GROQ_API_KEY", GROQ_API_KEY) else "".join(stream_ollama(prompt))
     sources     = list(dict.fromkeys(
         h["metadata"]["url"] for h in hits if h["metadata"].get("url")
     ))

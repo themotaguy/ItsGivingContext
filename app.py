@@ -15,13 +15,13 @@ import requests
 import streamlit as st
 
 # Inject Streamlit secrets into env vars before importing rag
-if "HF_API_TOKEN" in st.secrets:
-    os.environ["HF_API_TOKEN"] = st.secrets["HF_API_TOKEN"]
+if "GROQ_API_KEY" in st.secrets:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 from rag import (
     retrieve, build_prompt, build_collection_from_kym,
-    get_persistent_collection, stream_ollama, generate_hf,
-    OLLAMA_URL, OLLAMA_MODEL, HF_API_TOKEN,
+    get_persistent_collection, stream_ollama, generate_groq,
+    OLLAMA_URL, OLLAMA_MODEL, GROQ_API_KEY,
 )
 
 st.set_page_config(
@@ -70,14 +70,14 @@ if search and query.strip():
 
     prompt = build_prompt(q, hits)
 
-    if os.environ.get("HF_API_TOKEN", HF_API_TOKEN):
-        # Cloud: HuggingFace Inference API (non-streaming)
+    if os.environ.get("GROQ_API_KEY", GROQ_API_KEY):
+        # Cloud: Groq API (non-streaming)
         with st.spinner("Generating explanation..."):
             try:
-                explanation = generate_hf(prompt)
+                explanation = generate_groq(prompt)
                 st.markdown(explanation)
             except Exception as e:
-                st.error(f"HuggingFace API error: {e}")
+                st.error(f"Groq API error: {e}")
                 st.stop()
     else:
         # Local: Ollama streaming
