@@ -35,8 +35,8 @@ OLLAMA_URL   = os.environ.get("OLLAMA_URL", "http://localhost:11434") + "/api/ge
 
 # HuggingFace Inference API (cloud)
 HF_API_TOKEN = os.environ.get("HF_API_TOKEN", "")
-HF_MODEL     = "mistralai/Mistral-7B-Instruct-v0.2"
-HF_API_URL   = f"https://api-inference.huggingface.co/models/{HF_MODEL}"
+HF_MODEL     = "mistralai/Mistral-7B-Instruct-v0.3"
+HF_API_URL   = f"https://router.huggingface.co/hf-inference/models/{HF_MODEL}/v1/chat/completions"
 
 _embedder = None
 
@@ -159,18 +159,20 @@ If the entries don't contain enough information to explain the term, say so hone
 
 # ── Generation ────────────────────────────────────────────────────────────────
 def generate_hf(prompt: str) -> str:
-    """Generate via HuggingFace Inference API (non-streaming)."""
+    """Generate via HuggingFace Inference API (chat completions format)."""
+    token = os.environ.get("HF_API_TOKEN", HF_API_TOKEN)
     response = requests.post(
         HF_API_URL,
-        headers={"Authorization": f"Bearer {HF_API_TOKEN}"},
+        headers={"Authorization": f"Bearer {token}"},
         json={
-            "inputs":      f"[INST] {prompt} [/INST]",
-            "parameters":  {"max_new_tokens": 300, "return_full_text": False},
+            "model":      HF_MODEL,
+            "messages":   [{"role": "user", "content": prompt}],
+            "max_tokens": 300,
         },
         timeout=60,
     )
     response.raise_for_status()
-    return response.json()[0]["generated_text"]
+    return response.json()["choices"][0]["message"]["content"]
 
 def stream_ollama(prompt: str):
     """Stream generation from local Ollama (generator)."""
@@ -197,7 +199,7 @@ def explain(query: str) -> dict:
                 "explanation": f'No relevant results found for "{query}".',
                 "sources": [], "hits": []}
     prompt      = build_prompt(query, hits)
-    explanation = generate_hf(prompt) if HF_API_TOKEN else "".join(stream_ollama(prompt))
+    explanation = generate_hf(prompt) if os.environ.get("HF_API_TOKEN", HF_API_TOKEN) else "".join(stream_ollama(prompt))
     sources     = list(dict.fromkeys(
         h["metadata"]["url"] for h in hits if h["metadata"].get("url")
     ))

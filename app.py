@@ -13,6 +13,11 @@ import json
 import os
 import requests
 import streamlit as st
+
+# Inject Streamlit secrets into env vars before importing rag
+if "HF_API_TOKEN" in st.secrets:
+    os.environ["HF_API_TOKEN"] = st.secrets["HF_API_TOKEN"]
+
 from rag import (
     retrieve, build_prompt, build_collection_from_kym,
     get_persistent_collection, stream_ollama, generate_hf,
@@ -65,7 +70,7 @@ if search and query.strip():
 
     prompt = build_prompt(q, hits)
 
-    if HF_API_TOKEN:
+    if os.environ.get("HF_API_TOKEN", HF_API_TOKEN):
         # Cloud: HuggingFace Inference API (non-streaming)
         with st.spinner("Generating explanation..."):
             try:
