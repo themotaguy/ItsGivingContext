@@ -51,53 +51,34 @@ def get_persistent_collection():
     client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     return client.get_collection(COLLECTION_NAME)
 
-def build_collection_from_kym(csv_path: str = "data/know_your_meme.csv"):
+def build_collection_from_kym(embeddings_path: str = "data/kym_embeddings.npz"):
     """
-    Build an in-memory ChromaDB collection from the KYM CSV at startup.
-    Used for cloud deployment where the pre-built index isn't available.
+    Load pre-computed KYM embeddings into an in-memory ChromaDB collection.
+    Fast startup — no re-embedding needed.
+    Run precompute_embeddings.py once locally to generate the .npz file.
     """
-    import pandas as pd
-    from tqdm import tqdm
+    import json
+    import numpy as np
+
+    data       = np.load(embeddings_path, allow_pickle=True)
+    ids        = data["ids"].tolist()
+    texts      = data["texts"].tolist()
+    embeddings = data["embeddings"].tolist()
+    metadatas  = [json.loads(m) for m in data["metadatas"].tolist()]
 
     client     = chromadb.EphemeralClient()
     collection = client.get_or_create_collection(
         COLLECTION_NAME, metadata={"hnsw:space": "cosine"}
     )
-    model    = get_embedder()
-    df       = pd.read_csv(csv_path)
-    sections = ["body_about", "body_origin", "body_spread", "body_examples"]
-    BATCH    = 64
 
-    ids, texts, metas = [], [], []
-    for _, row in tqdm(df.iterrows(), total=len(df), desc="Indexing KYM"):
-        title = str(row["title"]).strip()
-        slug  = str(row["slug"]).strip()
-        url   = str(row["url"]).strip()
-        for sec in sections:
-            text = str(row.get(sec, "")).strip()
-            if len(text) < 50:
-                continue
-            text          = textwrap.shorten(text, width=1500, placeholder="...")
-            section_label = sec.replace("body_", "").replace("_", " ")
-            ids.append(f"kym_{slug}_{sec}")
-            texts.append(f"{title} ({section_label}): {text}")
-            metas.append({
-                "source":  "know_your_meme",
-                "title":   title,
-                "slug":    slug,
-                "section": section_label,
-                "tags":    str(row.get("tags", "")),
-                "year":    str(row.get("year", "")),
-                "url":     url,
-            })
-            if len(ids) >= BATCH:
-                embs = model.encode(texts, show_progress_bar=False).tolist()
-                collection.add(ids=ids, embeddings=embs, documents=texts, metadatas=metas)
-                ids, texts, metas = [], [], []
-
-    if ids:
-        embs = model.encode(texts, show_progress_bar=False).tolist()
-        collection.add(ids=ids, embeddings=embs, documents=texts, metadatas=metas)
+    BATCH = 512
+    for i in range(0, len(ids), BATCH):
+        collection.add(
+            ids=ids[i:i+BATCH],
+            embeddings=embeddings[i:i+BATCH],
+            documents=texts[i:i+BATCH],
+            metadatas=metadatas[i:i+BATCH],
+        )
 
     return collection
 

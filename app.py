@@ -39,7 +39,7 @@ def load_collection():
     """
     if os.path.exists("data/chroma_db"):
         return get_persistent_collection()
-    return build_collection_from_kym("data/know_your_meme.csv")
+    return build_collection_from_kym("data/kym_embeddings.npz")
 
 collection = load_collection()
 
