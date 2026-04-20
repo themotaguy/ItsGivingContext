@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Ritik Mota" />
+  <title>ItsGivingContext</title>
+  <style>
+
+html {
+font-size: 11pt;
+color: #1a1a1a;
+background-color: #fdfdfd;
+}
+body {
+margin: 0 auto;
+max-width: 36em;
+padding-left: 50px;
+padding-right: 50px;
+padding-top: 50px;
+padding-bottom: 50px;
+hyphens: auto;
+overflow-wrap: break-word;
+text-rendering: optimizeLegibility;
+font-kerning: normal;
+}
+@media (max-width: 600px) {
+body {
+font-size: 0.9em;
+padding: 12px;
+}
+h1 {
+font-size: 1.8em;
+}
+}
+@media print {
+html {
+background-color: white;
+}
+body {
+background-color: transparent;
+color: black;
+font-size: 12pt;
+}
+p, h2, h3 {
+orphans: 3;
+widows: 3;
+}
+h2, h3, h4 {
+page-break-after: avoid;
+}
+}
+p {
+margin: 1em 0;
+}
+a {
+color: #1a1a1a;
+}
+a:visited {
+color: #1a1a1a;
+}
+img {
+max-width: 100%;
+}
+svg {
+height: auto;
+max-width: 100%;
+}
+h1, h2, h3, h4, h5, h6 {
+margin-top: 1.4em;
+}
+h5, h6 {
+font-size: 1em;
+font-style: italic;
+}
+h6 {
+font-weight: normal;
+}
+ol, ul {
+padding-left: 1.7em;
+margin-top: 1em;
+}
+li > ol, li > ul {
+margin-top: 0;
+}
+blockquote {
+margin: 1em 0 1em 1.7em;
+padding-left: 1em;
+border-left: 2px solid #e6e6e6;
+color: #606060;
+}
+code {
+white-space: pre-wrap;
+font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+font-size: 85%;
+margin: 0;
+hyphens: manual;
+}
+pre {
+margin: 1em 0;
+overflow: auto;
+}
+pre code {
+padding: 0;
+overflow: visible;
+overflow-wrap: normal;
+}
+.sourceCode {
+background-color: transparent;
+overflow: visible;
+}
+hr {
+border: none;
+border-top: 1px solid #1a1a1a;
+height: 1px;
+margin: 1em 0;
+}
+table {
+margin: 1em 0;
+border-collapse: collapse;
+width: 100%;
+overflow-x: auto;
+display: block;
+font-variant-numeric: lining-nums tabular-nums;
+}
+table caption {
+margin-bottom: 0.75em;
+}
+tbody {
+margin-top: 0.5em;
+border-top: 1px solid #1a1a1a;
+border-bottom: 1px solid #1a1a1a;
+}
+th {
+border-top: 1px solid #1a1a1a;
+padding: 0.25em 0.5em 0.25em 0.5em;
+}
+td {
+padding: 0.125em 0.5em 0.25em 0.5em;
+}
+header {
+margin-bottom: 4em;
+text-align: center;
+}
+#TOC li {
+list-style: none;
+}
+#TOC ul {
+padding-left: 1.3em;
+}
+#TOC > ul {
+padding-left: 0;
+}
+#TOC a:not(:hover) {
+text-decoration: none;
+}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ItsGivingContext</h1>
+<p class="author">Ritik Mota</p>
+<p class="date">April 2026</p>
+</header>
+<h1 id="introduction">1. Introduction</h1>
+<p>Internet slang and meme culture evolve faster than any static
+dictionary can keep up with. Terms like <em>rizz</em>, <em>touch
+grass</em>, and <em>NPC</em> carry rich cultural context that mainstream
+references fail to capture. <strong>ItsGivingContext</strong> is a
+Retrieval-Augmented Generation (RAG) system that explains internet slang
+and memes in plain English, grounded in two authoritative crowd-sourced
+knowledge bases: <strong>Urban Dictionary</strong> and <strong>Know Your
+Meme</strong>.</p>
+<p>The system retrieves the most semantically relevant entries from a
+vector index of both sources, injects them into a structured prompt, and
+generates a concise explanation with inline citations tied directly to
+the retrieved chunks — enabling full verifiability of every claim.</p>
+<h1 id="system-architecture">2. System Architecture</h1>
+<p>The pipeline consists of four layers:</p>
+<pre><code>User Query
+    ↓
+[Embedding]    all-MiniLM-L6-v2 (sentence-transformers)
+    ↓
+[Retrieval]    ChromaDB cosine similarity → top-3 chunks
+    ↓
+[Augmentation] Prompt template with retrieved context + chunk citations
+    ↓
+[Generation]   Llama 3.1 8B (Groq API / local Ollama)
+    ↓
+Explanation + cited chunks shown in Streamlit UI</code></pre>
+<h1 id="data-collection-processing">3. Data Collection &amp;
+Processing</h1>
+<h2 id="urban-dictionary">3.1 Urban Dictionary</h2>
+<ul>
+<li><strong>Source:</strong> Kaggle dataset
+(<code>therohk/urban-dictionary-words-definitions</code>) — 2.58M raw
+entries</li>
+<li><strong>Filtering pipeline (<code>ud_ingest.py</code>):</strong>
+<ul>
+<li>Net upvotes ≥ 10 (removes low-quality, downvoted entries)</li>
+<li>Upvote ratio ≥ 60% (community quality signal)</li>
+<li>Definition length: 30–2,000 characters</li>
+<li>Keyword blocklist applied to both the word and definition fields
+(slurs + explicit sexual content)</li>
+<li>Deduplication by (word, definition) pair, keeping highest net-voted
+version</li>
+</ul></li>
+<li><strong>Result:</strong> ~565k filtered entries → top 50,000 by net
+votes indexed</li>
+</ul>
+<h2 id="know-your-meme">3.2 Know Your Meme</h2>
+<ul>
+<li><strong>Source:</strong> Custom web scraper
+(<code>kym_scraper.py</code>) with polite crawling (3–6s delay between
+requests)</li>
+<li><strong>Scope:</strong> <code>confirmed</code> and
+<code>notable</code> status entries only</li>
+<li><strong>Parsing:</strong> structured extraction of
+<code>About</code>, <code>Origin</code>, <code>Spread</code>, and
+<code>Notable Examples</code> sections using KYM’s anchor IDs; metadata
+(year, platform, tags) extracted from sidebar <code>dl/dt/dd</code>
+elements</li>
+<li><strong>Incremental checkpointing:</strong> slug-level checkpoint
+file allows resuming interrupted scrapes</li>
+<li><strong>Result:</strong> 6,133 confirmed/notable meme entries</li>
+</ul>
+<h1 id="embedding-indexing">4. Embedding &amp; Indexing</h1>
+<h2 id="embedding-model">4.1 Embedding Model</h2>
+<p><strong><code>all-MiniLM-L6-v2</code></strong>
+(sentence-transformers) was selected for:</p>
+<ul>
+<li>Strong performance on semantic similarity benchmarks (SBERT paper,
+Reimers &amp; Gurevych 2019)</li>
+<li>Lightweight (22M parameters, 384-dimensional embeddings) — fits
+within cloud memory constraints</li>
+<li>Reproducible, pure-Python setup with no external services
+required</li>
+</ul>
+<h2 id="chunking-strategy">4.2 Chunking Strategy</h2>
+<p>Two source-specific chunking strategies were applied:</p>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 34%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr>
+<th>Source</th>
+<th>Strategy</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Urban Dictionary</td>
+<td>One chunk per entry: <code>word: definition</code></td>
+<td>Definitions are already atomic units</td>
+</tr>
+<tr>
+<td>Know Your Meme</td>
+<td>One chunk per article section (<code>about</code>,
+<code>origin</code>, <code>spread</code>, <code>examples</code>)</td>
+<td>Each section covers a distinct aspect of the meme; keeps context
+tight</td>
+</tr>
+</tbody>
+</table>
+<h2 id="vector-database">4.3 Vector Database</h2>
+<p><strong>ChromaDB</strong> with <strong>cosine similarity</strong> was
+chosen for:</p>
+<ul>
+<li>Embedded (no separate server process required)</li>
+<li>Persistent local storage for development; in-memory
+<code>EphemeralClient</code> for cloud deployment</li>
+<li>Native support for metadata filtering and incremental upserts</li>
+</ul>
+<h2 id="index-statistics">4.4 Index Statistics</h2>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Entries</th>
+<th>Chunks Indexed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Urban Dictionary</td>
+<td>50,000</td>
+<td>50,000</td>
+</tr>
+<tr>
+<td>Know Your Meme</td>
+<td>6,133</td>
+<td>~18,000</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td></td>
+<td><strong>~68,000</strong></td>
+</tr>
+</tbody>
+</table>
+<h1 id="rag-pipeline">5. RAG Pipeline</h1>
+<h2 id="retrieval">5.1 Retrieval</h2>
+<p>At query time, the user’s input is embedded with
+<code>all-MiniLM-L6-v2</code> and a cosine similarity search returns the
+top-3 most relevant chunks. A minimum similarity threshold of 0.30
+filters out low-confidence matches, returning a “no results” message
+rather than generating an explanation from unrelated context.</p>
+<h2 id="augmentation">5.2 Augmentation</h2>
+<p>Retrieved chunks are injected into a structured prompt with:</p>
+<ul>
+<li>Numbered citations <code>[1]</code>, <code>[2]</code>,
+<code>[3]</code> matching each chunk</li>
+<li>Full chunk text and source URL per entry</li>
+<li>Instructions to cite inline and enumerate used citations at the
+end</li>
+</ul>
+<h2 id="generation">5.3 Generation</h2>
+<ul>
+<li><strong>Local development:</strong> Llama 3.2 via Ollama (streamed
+token-by-token to the UI)</li>
+<li><strong>Cloud deployment:</strong> Llama 3.1 8B Instant via Groq API
+(fast, free tier, ~1s latency)</li>
+<li>Output capped at 300 tokens for conciseness</li>
+</ul>
+<h1 id="content-moderation">6. Content Moderation</h1>
+<p>Urban Dictionary contains substantial explicit and harmful content. A
+two-stage moderation approach was applied:</p>
+<ol type="1">
+<li><strong>Upvote filtering</strong> — community downvoting acts as a
+crowd-sourced quality signal</li>
+<li><strong>Keyword blocklist</strong> — regex patterns applied to both
+the <code>word</code> and <code>definition</code> fields filter slurs
+and explicit sexual content before indexing</li>
+</ol>
+<p>Know Your Meme’s own editorial
+<code>confirmed</code>/<code>notable</code> status gate serves as an
+additional filter — only entries reviewed and confirmed by the KYM
+community are scraped.</p>
+<h1 id="citation-design">7. Citation Design</h1>
+<p>The grading rubric requires verifiable citations. Each generated
+explanation includes:</p>
+<ul>
+<li><strong>Inline citations</strong> — <code>[1]</code>,
+<code>[2]</code>, <code>[3]</code> within the generated text, tied to
+specific retrieved chunks</li>
+<li><strong>Chunk display</strong> — the full retrieved text of each
+cited chunk is rendered in the UI</li>
+<li><strong>Chunk ID</strong> —
+e.g. <code>kym_touch-grass_body_about</code>, identifying exactly which
+document was retrieved from the index</li>
+<li><strong>Web source link</strong> — URL to the original Urban
+Dictionary entry or Know Your Meme article</li>
+</ul>
+<p>This design exposes the full information retrieval pipeline: the
+grader can verify each claim against both the retrieved chunk and its
+original source.</p>
+<h1 id="deployment">8. Deployment</h1>
+<p>The application is deployed on <strong>Streamlit Community
+Cloud</strong>. To avoid slow cold-start re-embedding, KYM embeddings
+are pre-computed locally (<code>precompute_embeddings.py</code>) and
+stored as a compressed NumPy archive (<code>kym_embeddings.npz</code>,
+~9MB), committed to the repository. At startup, pre-computed vectors are
+loaded directly into an in-memory ChromaDB collection — reducing
+cold-start time from ~10 minutes to ~10 seconds.</p>
+<p>A <strong>Docker Compose</strong> configuration is also provided for
+local reproducibility, spinning up both the Streamlit app and an Ollama
+service with <code>llama3.2</code> automatically pulled on first
+run.</p>
+<h1 id="limitations-future-work">9. Limitations &amp; Future Work</h1>
+<ul>
+<li><strong>Recency gap:</strong> Urban Dictionary’s top-voted entries
+skew older; emerging slang (e.g. <em>rizz</em>, <em>delulu</em>) may not
+appear in the top 50k by net votes. Indexing by recency rather than
+votes would improve coverage of new terms.</li>
+<li><strong>KYM scrape completeness:</strong> IP rate-limiting during
+scraping meant a subset of target slugs were skipped. A longer scrape
+window with distributed delays would increase coverage.</li>
+<li><strong>Cloud UD index:</strong> The UD index (50k entries) exceeds
+practical GitHub file size limits for the pre-computed embeddings
+approach. The deployed version currently uses KYM only; a cloud object
+store (e.g. HuggingFace Hub datasets) would allow including UD.</li>
+<li><strong>Content moderation:</strong> The keyword blocklist is
+brittle. Future work could fine-tune a small text classifier on Urban
+Dictionary data for semantic content moderation.</li>
+</ul>
+<h1 id="references">10. References</h1>
+<ul>
+<li>Reimers, N., &amp; Gurevych, I. (2019). Sentence-BERT: Sentence
+Embeddings using Siamese BERT-Networks. <em>EMNLP 2019</em>.</li>
+<li>Lewis, P. et al. (2020). Retrieval-Augmented Generation for
+Knowledge-Intensive NLP Tasks. <em>NeurIPS 2020</em>.</li>
+<li>Urban Dictionary dataset: therohk, Kaggle.</li>
+<li>Know Your Meme: knowyourmeme.com</li>
+</ul>
+</body>
+</html>
