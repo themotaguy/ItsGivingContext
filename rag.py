@@ -146,9 +146,10 @@ def generate_groq(prompt: str) -> str:
         GROQ_API_URL,
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={
-            "model":    GROQ_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 300,
+            "model":       GROQ_MODEL,
+            "messages":    [{"role": "user", "content": prompt}],
+            "max_tokens":  300,
+            "temperature": 0,
         },
         timeout=60,
     )
@@ -160,7 +161,7 @@ def stream_ollama(prompt: str):
     with requests.post(
         OLLAMA_URL,
         json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": True,
-              "options": {"num_predict": 300}},
+              "options": {"num_predict": 300, "temperature": 0}},
         stream=True, timeout=120,
     ) as r:
         import json
