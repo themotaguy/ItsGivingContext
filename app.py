@@ -51,7 +51,7 @@ st.caption("Explain internet slang and memes — powered by Know Your Meme")
 with st.form("search_form"):
     query  = st.text_input(
         label="Enter a slang term or meme",
-        placeholder="e.g. no cap, rizz, NPC, touch grass...",
+        placeholder="e.g. touch grass, rizz or NPC",
         label_visibility="collapsed",
     )
     search = st.form_submit_button("Explain it", type="primary", use_container_width=True)
